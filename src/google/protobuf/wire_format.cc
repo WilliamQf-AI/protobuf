@@ -583,6 +583,12 @@ bool WireFormat::ParseAndMergeField(
       }
 
       case FieldDescriptor::TYPE_BYTES: {
+        if (!field->is_repeated()) {
+          absl::Cord value;
+          if (!WireFormatLite::ReadBytes(input, &value)) return false;
+          message_reflection->SetString(message, field, value);
+          break;
+        }
         std::string value;
         if (!WireFormatLite::ReadBytes(input, &value)) return false;
         if (field->is_repeated()) {
