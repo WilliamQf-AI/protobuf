@@ -7117,6 +7117,26 @@ void DescriptorBuilder::ValidateFieldOptions(
              "option json_name is not allowed on extension fields.");
   }
 
+  if (field->options().has_ctype()) {
+    if (field->cpp_type() != FieldDescriptor::CPPTYPE_STRING) {
+      AddError(field->full_name(), proto, DescriptorPool::ErrorCollector::TYPE,
+               "ctype can only be specified for string and bytes fields.");
+    }
+    if (field->options().ctype() == FieldOptions::CORD) {
+      if (field->is_repeated() ||
+          field->type() != FieldDescriptor::TYPE_BYTES) {
+        AddError(
+            field->full_name(), proto, DescriptorPool::ErrorCollector::TYPE,
+            "[ctype=CORD] can only be specified for singular bytes fields.");
+      }
+      if (field->is_extension()) {
+        AddError(field->full_name(), proto,
+                 DescriptorPool::ErrorCollector::TYPE,
+                 "[ctype=CORD] can not be specified for extensions.");
+      }
+    }
+  }
+
 }
 
 void DescriptorBuilder::ValidateEnumOptions(EnumDescriptor* enm,

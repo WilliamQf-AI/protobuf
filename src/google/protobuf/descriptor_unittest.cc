@@ -2954,7 +2954,7 @@ TEST_F(MiscTest, FieldOptions) {
                FieldDescriptorProto::TYPE_INT32);
 
   FieldOptions* options = bar_proto->mutable_options();
-  options->set_ctype(FieldOptions::CORD);
+  options->set_deprecated(true);
 
   // Build the descriptors and get the pointers.
   DescriptorPool pool;
@@ -2973,8 +2973,8 @@ TEST_F(MiscTest, FieldOptions) {
 
   // "bar" had options set.
   EXPECT_NE(&FieldOptions::default_instance(), options);
-  EXPECT_TRUE(bar->options().has_ctype());
-  EXPECT_EQ(FieldOptions::CORD, bar->options().ctype());
+  EXPECT_TRUE(bar->options().has_deprecated());
+  EXPECT_TRUE(bar->options().deprecated());
 }
 
 // ===================================================================
@@ -5575,6 +5575,50 @@ TEST_F(ValidationErrorTest, InvalidOptionName) {
 
       "foo.proto: TestMessage.foo: OPTION_NAME: Option must not use "
       "reserved name \"uninterpreted_option\".\n");
+}
+
+TEST_F(ValidationErrorTest, InvalidCtype) {
+  BuildFileWithErrors(
+      "name: \"foo.proto\" "
+      "message_type { "
+      "  name: \"TestMessage\" "
+      "  field { name:\"foo\" number:1 label:LABEL_OPTIONAL type:TYPE_BOOL "
+      "          options { uninterpreted_option { "
+      "                      name { name_part: \"ctype\" "
+      "                             is_extension: false }"
+      "                      identifier_value: \"STRING\" "
+      "                    }"
+      "          }"
+      "  }"
+      "}\n",
+
+      "foo.proto: TestMessage.foo: TYPE: ctype can only be specified for "
+      "string and bytes fields.\n");
+}
+
+TEST_F(ValidationErrorTest, InvalidCordExtension) {
+  BuildFileWithErrors(
+      "name: \"foo.proto\" "
+      "package: \"foo\" "
+      "message_type {"
+      "  name: \"Foo\""
+      "  extension_range { start: 10 end: 20 }"
+      "}"
+      "extension {"
+      "  name: \"value\""
+      "  number: 10"
+      "  label: LABEL_OPTIONAL"
+      "  type: TYPE_BYTES"
+      "  extendee: \"foo.Foo\""
+      "  options { uninterpreted_option { "
+      "              name { name_part: \"ctype\" "
+      "                     is_extension: false }"
+      "              identifier_value: \"CORD\" "
+      "            }"
+      "  }"
+      "}",
+      "foo.proto: foo.value: TYPE: [ctype=CORD] can not be specified for "
+      "extensions.\n");
 }
 
 TEST_F(ValidationErrorTest, RepeatedMessageOption) {
