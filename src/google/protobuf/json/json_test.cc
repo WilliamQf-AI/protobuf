@@ -315,6 +315,20 @@ TEST_P(JsonTest, EvilString) {
   EXPECT_EQ(m->string_value(), "\n\r\b\f\1\2\3");
 }
 
+TEST_P(JsonTest, Unquoted64) {
+  TestMessage m;
+  m.add_repeated_int64_value(42);
+  m.add_repeated_int64_value(-((int64{1} << 60) + 1));
+  m.add_repeated_uint64_value(42);
+  m.add_repeated_uint64_value((int64{1} << 60) + 1);
+
+  PrintOptions opts;
+  opts.unquote_int64_if_possible = true;
+  EXPECT_THAT(ToJson(m, opts),
+              R"({"repeatedInt64Value":[42,"-1152921504606846977"],)"
+              R"("repeatedUint64Value":[42,"1152921504606846977"]})");
+}
+
 TEST_P(JsonTest, TestAlwaysPrintEnumsAsInts) {
   TestMessage orig;
   orig.set_enum_value(proto3::BAR);

@@ -31,6 +31,7 @@
 #include "google/protobuf/json/internal/unparser.h"
 
 #include <cfloat>
+#include <cmath>
 #include <complex>
 #include <cstdint>
 #include <cstring>
@@ -104,6 +105,19 @@ void WriteEnum(JsonWriter& writer, Field<Traits> field, int32_t value,
   }
 }
 
+// Returns true if x round-trips through being cast to a double, i.e., if
+// x is represenable exactly as a double. This is a slightly weaker condition
+// than x < 2^52.
+template <typename Int>
+bool RoundTripsThroughDouble(Int x) {
+  auto f = static_cast<double>(x);
+  if (!std::isfinite(f)) {
+    return false;
+  }
+
+  return static_cast<Int>(f) == x;
+}
+
 // Mutually recursive with functions that follow.
 template <typename Traits>
 absl::Status WriteMessage(JsonWriter& writer, const Msg<Traits>& msg,
@@ -143,14 +157,24 @@ absl::Status WriteSingular(JsonWriter& writer, Field<Traits> field,
     case FieldDescriptor::TYPE_INT64: {
       auto x = Traits::GetInt64(field, std::forward<Args>(args)...);
       RETURN_IF_ERROR(x.status());
-      writer.Write(MakeQuoted(*x));
+      if (writer.options().unquote_int64_if_possible &&
+          RoundTripsThroughDouble(*x)) {
+        writer.Write(*x);
+      } else {
+        writer.Write(MakeQuoted(*x));
+      }
       break;
     }
     case FieldDescriptor::TYPE_FIXED64:
     case FieldDescriptor::TYPE_UINT64: {
       auto x = Traits::GetUInt64(field, std::forward<Args>(args)...);
       RETURN_IF_ERROR(x.status());
-      writer.Write(MakeQuoted(*x));
+      if (writer.options().unquote_int64_if_possible &&
+          RoundTripsThroughDouble(*x)) {
+        writer.Write(*x);
+      } else {
+        writer.Write(MakeQuoted(*x));
+      }
       break;
     }
     case FieldDescriptor::TYPE_SFIXED32:
